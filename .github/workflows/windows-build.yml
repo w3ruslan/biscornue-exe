@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-windows:
-    runs-on: windows-2022 # Ortamı sabitle
+    runs-on: windows-2022  # VS2022 sabit ortam
 
     steps:
       - name: Checkout
@@ -17,39 +17,37 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          # flutter-version: '3.22.2' # İstersen sabitleyebilirsin; aksi halde stable'ın sonunu alır.
+          # flutter-version: '3.22.2'  # İstersen sabitle (önerilir)
 
-      - name: Doctor (log için)
+      - name: Doctor (log)
         run: flutter doctor -v
 
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
 
-      # *** KRİTİK: Bozuk build artifaktlarını ve ephemeral'ı temizle ***
-      - name: Clean + remove build artifacts
+      # --- Temizlik: build/.dart_tool + ephemeral ---
+      - name: Clean + purge ephemeral
         shell: pwsh
         run: |
           flutter clean
           Remove-Item -Recurse -Force build, .dart_tool -ErrorAction SilentlyContinue
           if (Test-Path "windows/flutter/ephemeral") { Remove-Item -Recurse -Force "windows/flutter/ephemeral" }
-      
-      # *** KRİTİK: Windows engine dosyalarını önceden indir (flutter_windows.dll buradan gelir) ***
+
+      # --- Engine'i önceden indir: flutter_windows.dll buradan gelir ---
       - name: Precache Windows engine
         run: flutter precache --windows
 
-      # Windows klasörü yoksa oluştur; varsa dokunma (yeniden yazdırma karmaşa yaratabiliyor)
+      # windows/ yoksa oluştur (varsa elleme)
       - name: Ensure Windows runner exists
         shell: pwsh
         run: |
-          if (!(Test-Path "windows/CMakeLists.txt")) {
-            flutter create --platforms=windows .
-          }
-      
+          if (!(Test-Path "windows/CMakeLists.txt")) { flutter create --platforms=windows . }
+
       - name: Pub get
         run: flutter pub get
 
-      # (İsteğe bağlı) NBSP temizliği — kopyala/yapıştır hatalarını önler
-      - name: Normalize non-breaking spaces in Dart files
+      # (opsiyonel) NBSP temizliği; kopyala-yapıştır hatalarını önler
+      - name: Normalize NBSP in Dart
         shell: pwsh
         run: |
           Get-ChildItem -Recurse -Filter *.dart | ForEach-Object {
@@ -59,7 +57,7 @@ jobs:
           }
 
       - name: Build Windows (release)
-        run: flutter build windows --release
+        run: flutter build windows --release -v
 
       - name: Zip release folder
         shell: pwsh
