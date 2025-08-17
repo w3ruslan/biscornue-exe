@@ -1,13 +1,10 @@
 // lib/print_spooler_windows.dart
-// Windows yazıcı spooler'ına RAW (ESC/POS) veri gönderir.
-
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
 
 String? getDefaultPrinterName() {
   final needed = calloc<Uint32>();
-  // İlk çağrı: buffer boyutunu öğren
   GetDefaultPrinter(nullptr, needed);
   if (needed.value == 0) {
     calloc.free(needed);
@@ -35,10 +32,10 @@ void writeRawToPrinterWindows(String printerName, List<int> data) {
     final docInfo = calloc<DOC_INFO_1>();
     docInfo.ref.pDocName    = TEXT('BISCORNUE Ticket');
     docInfo.ref.pOutputFile = nullptr;
-    docInfo.ref.pDatatype   = TEXT('RAW'); // ESC/POS için RAW şart
+    docInfo.ref.pDatatype   = TEXT('RAW');
 
     final job = StartDocPrinter(hPrinter, 1, docInfo);
-    if (job == 0) { throw Exception('StartDocPrinter başarısız. Hata: ${GetLastError()}'); }
+    if (job == 0) throw Exception('StartDocPrinter başarısız. Hata: ${GetLastError()}');
 
     StartPagePrinter(hPrinter);
 
@@ -55,9 +52,7 @@ void writeRawToPrinterWindows(String printerName, List<int> data) {
     calloc.free(pData);
     calloc.free(docInfo);
 
-    if (ok == 0) {
-      throw Exception('WritePrinter başarısız. Hata: ${GetLastError()}');
-    }
+    if (ok == 0) throw Exception('WritePrinter başarısız. Hata: ${GetLastError()}');
   } finally {
     calloc.free(pPrinterName);
     calloc.free(phPrinter);
