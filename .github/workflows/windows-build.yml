@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-windows:
-    runs-on: windows-2022  # VS2022 sabit ortam
+    runs-on: windows-2022 # Ortamı sabitle
 
     steps:
       - name: Checkout
@@ -17,47 +17,45 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          # flutter-version: '3.22.2'  # İstersen sabitle (önerilir)
 
-      - name: Doctor (log)
+      - name: Doctor (log için)
         run: flutter doctor -v
 
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
 
-      # --- Temizlik: build/.dart_tool + ephemeral ---
-      - name: Clean + purge ephemeral
+      - name: Clean + remove build artifacts
         shell: pwsh
         run: |
           flutter clean
           Remove-Item -Recurse -Force build, .dart_tool -ErrorAction SilentlyContinue
           if (Test-Path "windows/flutter/ephemeral") { Remove-Item -Recurse -Force "windows/flutter/ephemeral" }
-
-      # --- Engine'i önceden indir: flutter_windows.dll buradan gelir ---
+      
       - name: Precache Windows engine
         run: flutter precache --windows
 
-      # windows/ yoksa oluştur (varsa elleme)
       - name: Ensure Windows runner exists
         shell: pwsh
         run: |
-          if (!(Test-Path "windows/CMakeLists.txt")) { flutter create --platforms=windows . }
-
+          if (!(Test-Path "windows/CMakeLists.txt")) {
+            flutter create --platforms=windows .
+          }
+      
       - name: Pub get
         run: flutter pub get
 
-      # (opsiyonel) NBSP temizliği; kopyala-yapıştır hatalarını önler
-      - name: Normalize NBSP in Dart
+      - name: Normalize non-breaking spaces in Dart files
         shell: pwsh
         run: |
           Get-ChildItem -Recurse -Filter *.dart | ForEach-Object {
             $t = Get-Content $_.FullName -Raw
-            $t = $t -replace [char]0x00A0, ' '
+            $t = $t -replace [char]0x00A0, ' ' -replace [char]0x200B, ''
             Set-Content -Path $_.FullName -Value $t -Encoding UTF8
           }
 
+      # --- DÜZELTME: Giriş dosyası --target ile açıkça belirtildi ---
       - name: Build Windows (release)
-        run: flutter build windows --release -v
+        run: flutter build windows --release --target=lib/main.dart -v
 
       - name: Zip release folder
         shell: pwsh
