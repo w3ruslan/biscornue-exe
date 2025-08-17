@@ -7,7 +7,8 @@ on:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022 # Ortamı sabitle
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,15 +17,46 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # flutter-version: '3.22.2' # İstersen sabitleyebilirsin; aksi halde stable'ın sonunu alır.
+
+      - name: Doctor (log için)
+        run: flutter doctor -v
 
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
 
-      - name: Ensure Windows runner exists
-        run: flutter create --platforms=windows .
+      # *** KRİTİK: Bozuk build artifaktlarını ve ephemeral'ı temizle ***
+      - name: Clean + remove build artifacts
+        shell: pwsh
+        run: |
+          flutter clean
+          Remove-Item -Recurse -Force build, .dart_tool -ErrorAction SilentlyContinue
+          if (Test-Path "windows/flutter/ephemeral") { Remove-Item -Recurse -Force "windows/flutter/ephemeral" }
+      
+      # *** KRİTİK: Windows engine dosyalarını önceden indir (flutter_windows.dll buradan gelir) ***
+      - name: Precache Windows engine
+        run: flutter precache --windows
 
+      # Windows klasörü yoksa oluştur; varsa dokunma (yeniden yazdırma karmaşa yaratabiliyor)
+      - name: Ensure Windows runner exists
+        shell: pwsh
+        run: |
+          if (!(Test-Path "windows/CMakeLists.txt")) {
+            flutter create --platforms=windows .
+          }
+      
       - name: Pub get
         run: flutter pub get
+
+      # (İsteğe bağlı) NBSP temizliği — kopyala/yapıştır hatalarını önler
+      - name: Normalize non-breaking spaces in Dart files
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse -Filter *.dart | ForEach-Object {
+            $t = Get-Content $_.FullName -Raw
+            $t = $t -replace [char]0x00A0, ' '
+            Set-Content -Path $_.FullName -Value $t -Encoding UTF8
+          }
 
       - name: Build Windows (release)
         run: flutter build windows --release
@@ -32,7 +64,10 @@ jobs:
       - name: Zip release folder
         shell: pwsh
         run: |
-          $src = "build/windows/x64/runner/Release"
+          $p1 = "build/windows/x64/runner/Release"
+          $p2 = "build/windows/runner/Release"
+          $src = (Test-Path $p1) ? $p1 : $p2
+          if (!(Test-Path $src)) { throw "Release folder not found" }
           Compress-Archive -Path "$src/*" -DestinationPath "Biscornue-Windows.zip"
 
       - name: Upload artifact
