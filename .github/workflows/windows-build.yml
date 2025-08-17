@@ -24,6 +24,7 @@ jobs:
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
 
+      # *** KRİTİK: Bozuk build artifaktlarını ve ephemeral'ı temizle ***
       - name: Clean + remove build artifacts
         shell: pwsh
         run: |
@@ -31,9 +32,11 @@ jobs:
           Remove-Item -Recurse -Force build, .dart_tool -ErrorAction SilentlyContinue
           if (Test-Path "windows/flutter/ephemeral") { Remove-Item -Recurse -Force "windows/flutter/ephemeral" }
       
+      # *** KRİTİK: Windows engine dosyalarını önceden indir (flutter_windows.dll buradan gelir) ***
       - name: Precache Windows engine
         run: flutter precache --windows
 
+      # Windows klasörü yoksa oluştur; varsa dokunma (yeniden yazdırma karmaşa yaratabiliyor)
       - name: Ensure Windows runner exists
         shell: pwsh
         run: |
@@ -44,6 +47,7 @@ jobs:
       - name: Pub get
         run: flutter pub get
 
+      # (İsteğe bağlı) NBSP temizliği — kopyala/yapıştır hatalarını önler
       - name: Normalize non-breaking spaces in Dart files
         shell: pwsh
         run: |
@@ -53,7 +57,7 @@ jobs:
             Set-Content -Path $_.FullName -Value $t -Encoding UTF8
           }
 
-      # --- DÜZELTME: Giriş dosyası --target ile açıkça belirtildi ---
+      # --- Giriş dosyası --target ile açıkça belirtildi ---
       - name: Build Windows (release)
         run: flutter build windows --release --target=lib/main.dart -v
 
